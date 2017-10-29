@@ -25,7 +25,7 @@
 package com.hexastyle.simulatorgui;
 
 public class LogicSimulatorGui {
-    private static EditorViewer editorViewer;
+    private static EditorViewer editorViewer = null;
 
     public static void main(String[] args) {
         System.setProperty("sun.java2d.opengl", "true");

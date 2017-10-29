@@ -41,7 +41,7 @@ import static com.hexastyle.simulatorgui.Viewer.getColor;
 import static java.awt.event.MouseEvent.*;
 
 public class EditorViewer extends JPanel implements MouseWheelListener, MouseListener, MouseMotionListener {
-    private static final int LONG_PRESS_TIME = 2000;
+    private static final int GUI_VERSION = 2;
     static float zoomFactor = 1;
     static int xOrig;
     static int yOrig;
@@ -266,11 +266,12 @@ public class EditorViewer extends JPanel implements MouseWheelListener, MouseLis
     JButton horizontalButton = new JButton("HORIZONTAL");
     JButton verticalButton = new JButton("VERTICAL");
     JButton rotateButton = new JButton("ROTATE");
+    JButton addInputButton = new JButton("IN++");
     JPasswordField passwordField = new JPasswordField();
     JMenu addMenu = new JMenu("ADD");
 
     public void createMenu() {
-        JFrame frame = new JFrame("V2.3 Logic Breadboard Simulator");
+        JFrame frame = new JFrame("V2 Simulator GUI");
         frame.setSize(1600, 1024);
         frame.setLayout(new BorderLayout());
         frame.setVisible(true);
@@ -297,9 +298,13 @@ public class EditorViewer extends JPanel implements MouseWheelListener, MouseLis
                 Prop.writeSettings();
                 String pwd = new String(passwordField.getPassword());
                 if (clientConnect(Prop.url, Prop.port, pwd)) {
-                    askDeviceViewerTypes();
-                    frame.invalidate();
-                    System.out.println("Connected");
+                    if (checkVersion()) {
+                        askDeviceViewerTypes();
+                        frame.invalidate();
+                        System.out.println("Connected");
+                    } else {
+                        System.out.println("Simulator GUI version missmatch. Please download the latest versions.");
+                    }
                 } else {
                     System.out.println("Connection/Password error");
                 }
@@ -469,9 +474,41 @@ public class EditorViewer extends JPanel implements MouseWheelListener, MouseLis
                 }
             }
         });
+        menuBar.add(addInputButton);
+        addInputButton.addActionListener(new ActionListener() {
+            public void actionPerformed(ActionEvent e) {
+                try {
+                    con.output.writeInt(ProtocolConstants.PC2A.REMOTE_BUTTON_EVENT.ordinal());
+                    con.output.writeInt(ProtocolConstants.PC2A.ADD_INPUT.ordinal());
+                } catch (IOException e1) {
+                    e1.printStackTrace();
+                }
+            }
+        });
+
         frame.setJMenuBar(menuBar);
         frame.add(this);
         frame.setVisible(true);
+    }
+
+    private boolean checkVersion() {
+        try {
+            con.output.writeInt(ProtocolConstants.PC2A.ASK_VERSION.ordinal());
+            con.output.writeInt(GUI_VERSION);
+            int cmd = con.input.readInt();
+            if (cmd != ProtocolConstants.A2PC.ANSWER_VERSION.ordinal()) {
+                System.out.println("The simulator version is older than GUI version");
+                return false;
+            }
+            int version = con.input.readInt();
+            if (version != GUI_VERSION) {
+                System.out.println("Simulator version:" + version + " GUI version:" + GUI_VERSION);
+                return false;
+            }
+        } catch (IOException e1) {
+            e1.printStackTrace();
+        }
+        return true;
     }
 
     class SubActionListener implements ActionListener {
@@ -592,6 +629,9 @@ public class EditorViewer extends JPanel implements MouseWheelListener, MouseLis
                 }
                 ProtocolConstants.A2PC cmd = ProtocolConstants.A2PC.values()[sym];
                 switch (cmd) {
+                    case ANSWER_VERSION:
+                        int version = con.input.readInt();
+                        break;
                     case SCHEMATIC:
                         backgroundColor = getColor(con.input.readInt());
                         foregroundColor = getColor(con.input.readInt());
